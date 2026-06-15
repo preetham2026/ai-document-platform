@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Intelligence Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f1923;
+            color: #ffffff;
+            min-height: 100vh;
+        }
+        .header {
+            background: #1F4E79;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .header h1 { font-size: 24px; }
+        .header p { font-size: 13px; color: #90CAF9; }
+        .badge {
+            background: #2E75B6;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: #1a2632;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #2a3f55;
+        }
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #90CAF9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .upload-area {
+            border: 2px dashed #2E75B6;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { background: #1F4E7920; }
+        .upload-area p { color: #90CAF9; font-size: 14px; }
+        .upload-area span { font-size: 32px; }
+        input[type="file"] { display: none; }
+        .btn {
+            background: #1F4E79;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #2E75B6; }
+        .btn-green {
+            background: #1B5E20;
+        }
+        .btn-green:hover { background: #2E7D32; }
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+        }
+        .status.success { background: #1B5E2040; border: 1px solid #2E7D32; color: #81C784; }
+        .status.error { background: #C6282840; border: 1px solid #C62828; color: #EF9A9A; }
+        .doc-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .doc-item {
+            background: #0f1923;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid #2a3f55;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .doc-item:hover { border-color: #2E75B6; }
+        .doc-item.selected { border-color: #2E75B6; background: #1F4E7920; }
+        .chat-area {
+            grid-column: 1 / -1;
+        }
+        .messages {
+            height: 350px;
+            overflow-y: auto;
+            background: #0f1923;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #2a3f55;
+        }
+        .message {
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user .bubble {
+            background: #1F4E79;
+            padding: 10px 15px;
+            border-radius: 12px 12px 4px 12px;
+            display: inline-block;
+            max-width: 80%;
+            font-size: 14px;
+            float: right;
+            clear: both;
+        }
+        .message.ai .bubble {
+            background: #1a2632;
+            border: 1px solid #2a3f55;
+            padding: 10px 15px;
+            border-radius: 12px 12px 12px 4px;
+            display: inline-block;
+            max-width: 80%;
+            font-size: 14px;
+            float: left;
+            clear: both;
+        }
+        .message .label {
+            font-size: 11px;
+            color: #90CAF9;
+            margin-bottom: 4px;
+            clear: both;
+        }
+        .message.user .label { text-align: right; }
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .input-row input {
+            flex: 1;
+            background: #0f1923;
+            border: 1px solid #2a3f55;
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .input-row input:focus { border-color: #2E75B6; }
+        .input-row button {
+            background: #1F4E79;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .input-row button:hover { background: #2E75B6; }
+        .selected-doc {
+            background: #1B5E2020;
+            border: 1px solid #2E7D32;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #81C784;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            grid-column: 1 / -1;
+        }
+        .stat {
+            background: #1a2632;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #2a3f55;
+        }
+        .stat .number { font-size: 28px; font-weight: bold; color: #90CAF9; }
+        .stat .label { font-size: 12px; color: #666; margin-top: 4px; }
+        .thinking {
+            display: none;
+            padding: 10px 15px;
+            color: #90CAF9;
+            font-size: 13px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>🤖 AI Document Intelligence Platform</h1>
+        <p>Powered by AWS Bedrock (Llama 3) · S3 Storage · Python Flask</p>
+    </div>
+    <span class="badge">✅ AWS Bedrock Live</span>
+</div>
+
+<div class="container">
+
+    <!-- STATS -->
+    <div class="stats">
+        <div class="stat">
+            <div class="number" id="docCount">0</div>
+            <div class="label">Documents Uploaded</div>
+        </div>
+        <div class="stat">
+            <div class="number" id="questionCount">0</div>
+            <div class="label">Questions Asked</div>
+        </div>
+        <div class="stat">
+            <div class="number">Llama 3</div>
+            <div class="label">AI Model (AWS Bedrock)</div>
+        </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="card">
+        <h2>📄 Upload Document</h2>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <span>📁</span>
+            <p style="margin-top: 10px;">Click to upload PDF or TXT file</p>
+            <p style="font-size: 11px; color: #666; margin-top: 5px;">Files stored in AWS S3</p>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.txt" onchange="uploadFile()">
+        <div class="status" id="uploadStatus"></div>
+    </div>
+
+    <!-- DOCUMENTS -->
+    <div class="card">
+        <h2>📚 Your Documents</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Click a document to select it for Q&A</p>
+        <div class="doc-list" id="docList">
+            <p style="color: #666; font-size: 13px;">No documents yet — upload one!</p>
+        </div>
+        <button class="btn" onclick="loadDocuments()">🔄 Refresh Documents</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="card chat-area">
+        <h2>💬 Ask AI About Your Document</h2>
+        <div class="selected-doc" id="selectedDoc">📄 No document selected — click one above</div>
+        <div class="messages" id="messages">
+            <div class="message ai">
+                <div class="label">🤖 AI Assistant</div>
+                <div class="bubble">Hello! Upload a document and ask me anything about it. I'll answer using only the content from your document — powered by AWS Bedrock!</div>
+            </div>
+        </div>
+        <div class="thinking" id="thinking">🤖 AI is thinking...</div>
+        <div class="input-row">
+            <input type="text" id="questionInput" placeholder="Ask a question about your document..." onkeypress="if(event.key==='Enter') askQuestion()">
+            <button onclick="askQuestion()">Ask AI 🚀</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let selectedFile = null;
+    let questionCount = 0;
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const status = document.getElementById('uploadStatus');
+        status.style.display = 'block';
+        status.className = 'status';
+        status.textContent = '⏳ Uploading to AWS S3...';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            if (data.error) {
+                status.className = 'status error';
+                status.textContent = '❌ ' + data.error;
+            } else {
+                status.className = 'status success';
+                status.textContent = `✅ ${data.filename} uploaded! (${data.total_chars} characters extracted)`;
+                loadDocuments();
+            }
+        } catch (e) {
+            status.className = 'status error';
+            status.textContent = '❌ Upload failed: ' + e.message;
+        }
+    }
+
+    async function loadDocuments() {
+        const response = await fetch('/documents');
+        const data = await response.json();
+
+        const docList = document.getElementById('docList');
+        document.getElementById('docCount').textContent = data.total;
+
+        if (data.documents.length === 0) {
+            docList.innerHTML = '<p style="color: #666; font-size: 13px;">No documents yet — upload one!</p>';
+            return;
+        }
+
+        docList.innerHTML = data.documents.map(doc => `
+            <div class="doc-item ${selectedFile === doc ? 'selected' : ''}"
+                 onclick="selectDoc('${doc}')">
+                📄 ${doc}
+            </div>
+        `).join('');
+    }
+
+    function selectDoc(filename) {
+        selectedFile = filename;
+        document.getElementById('selectedDoc').style.display = 'block';
+        document.getElementById('selectedDoc').textContent = `📄 Selected: ${filename}`;
+        loadDocuments();
+
+        addMessage('ai', `I've loaded **${filename}**. Ask me anything about it!`);
+    }
+
+    async function askQuestion() {
+        const input = document.getElementById('questionInput');
+        const question = input.value.trim();
+        if (!question) return;
+        if (!selectedFile) {
+            alert('Please select a document first!');
+            return;
+        }
+
+        input.value = '';
+        addMessage('user', question);
+        document.getElementById('thinking').style.display = 'block';
+
+        try {
+            const response = await fetch('/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question, filename: selectedFile })
+            });
+            const data = await response.json();
+
+            document.getElementById('thinking').style.display = 'none';
+
+            if (data.error) {
+                addMessage('ai', '❌ Error: ' + data.error);
+            } else {
+                addMessage('ai', data.answer);
+                questionCount++;
+                document.getElementById('questionCount').textContent = questionCount;
+            }
+        } catch (e) {
+            document.getElementById('thinking').style.display = 'none';
+            addMessage('ai', '❌ Failed to get answer: ' + e.message);
+        }
+    }
+
+    function addMessage(role, text) {
+        const messages = document.getElementById('messages');
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.innerHTML = `
+            <div class="label">${role === 'user' ? '👤 You' : '🤖 AI (AWS Bedrock)'}</div>
+            <div class="bubble">${text}</div>
+            <div style="clear:both"></div>
+        `;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Load documents on start
+    loadDocuments();
+</script>
+
+</body>
+</html>

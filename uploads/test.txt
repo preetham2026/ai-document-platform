@@ -1,0 +1,16 @@
+Ritham Dairy Farm Report
+
+Owner: Sunny
+Location: Nashville, Tennessee
+Total Cows: 11
+Best Cow: Clara with 33 liters per day
+
+Financial Summary:
+Monthly Revenue: $13,770
+Monthly Expenses: $10,450
+Monthly Profit: $3,320
+Yearly Profit: $39,840
+
+Top performing cows are Clara, Bella, Ruby and Rosie.
+Sick cows needing vet attention are Daisy, Molly and Maggie.
+Milk price is $1.50 per liter.

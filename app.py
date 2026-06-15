@@ -16,6 +16,9 @@ bedrock = boto3.client(
     region_name=os.getenv("AWS_REGION", "us-east-1")
 )
 
+GUARDRAIL_ID = "k191z5hjoqwb"
+GUARDRAIL_VERSION = "DRAFT"
+
 s3 = boto3.client(
     service_name="s3",
     region_name=os.getenv("AWS_REGION", "us-east-1")
@@ -39,7 +42,6 @@ def extract_text_from_pdf(filepath):
 def extract_text_from_txt(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         return f.read()
-
 def ask_bedrock(question, context):
     prompt = f"""You are an intelligent document assistant.
 Use ONLY the following document content to answer the question.
@@ -58,19 +60,37 @@ Answer:"""
         "temperature": 0.3,
     })
 
-    response = bedrock.invoke_model(
-        modelId="meta.llama3-8b-instruct-v1:0",
-        body=body,
-        contentType="application/json",
-        accept="application/json"
-    )
+    try:
+        response = bedrock.invoke_model(
+            modelId="meta.llama3-8b-instruct-v1:0",
+            body=body,
+            contentType="application/json",
+            accept="application/json",
+            guardrailIdentifier=GUARDRAIL_ID,
+            guardrailVersion=GUARDRAIL_VERSION,
+        )
 
-    result = json.loads(response["body"].read())
-    return result["generation"].strip()
+        response_body = json.loads(response["body"].read())
 
-def upload_to_s3(filepath, filename):
-    s3.upload_file(filepath, BUCKET, f"documents/{filename}")
-    return f"s3://{BUCKET}/documents/{filename}"
+        # Check if guardrail blocked it
+        if response_body.get("amazon-bedrock-guardrailAction") == "BLOCKED":
+            return "🛡️ Guardrail blocked this request — harmful content detected!"
+
+        # Check generation field
+        answer = response_body.get("generation", "")
+
+        if not answer or answer.strip() == "":
+            return "🛡️ This response was blocked by Bedrock Guardrails for safety reasons!"
+
+        return answer.strip()
+
+    except bedrock.exceptions.ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "ValidationException":
+            return "🛡️ Guardrail blocked this request — content policy violation!"
+        raise e
+
+    
 
 # ================================================
 #                   ROUTES

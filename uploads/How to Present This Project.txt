@@ -1,0 +1,21 @@
+ How to Present This Project
+When applying for jobs say:
+
+
+Senior DevOps & AI Platform Engineer with 8+ years of experience in AWS, Azure, Kubernetes, CI/CD, and MLOps. Recently built an end-to-end AI Platform project — Python Flask API containerized with Docker, deployed on AWS EC2, orchestrated with Kubernetes, and powered by AWS Bedrock (Llama 3). Full CI/CD pipeline via GitHub Actions.
+Core skills: AWS Bedrock · Kubernetes · Terraform · GitHub Actions · Python · Docker · MLOps · DevSecOps
+GitHub: github.com/preetham2026/ai-platform-journey
+
+"I built an end-to-end AI Platform project called Ritham Dairy Farm — a Python Flask REST API containerized with Docker, deployed on AWS EC2, orchestrated with Kubernetes, integrated with AWS Bedrock AI for intelligent farm analysis, with a full CI/CD pipeline using GitHub Actions. The system includes a SQLite database, Pandas data analysis, real-time weather API integration, and automated testing."
+
+
+
+"I deployed the app to AWS EC2 and verified it worked live. I also have it running locally on Kubernetes with 5 pods and a full CI/CD pipeline on GitHub Actions."
+
+That's 100% true and very impressive! ✅
+
+
+
+"I built this as a learning project to transition into AI Platform Engineering. It demonstrates my ability to connect all the layers — Python, APIs, Docker, Kubernetes, AWS Bedrock, and CI/CD."
+
+"I'm excited to transition into AI Platform Engineering where I can combine my infrastructure expertise with AI — and I've already started building in that direction."

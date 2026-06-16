@@ -3,6 +3,7 @@ import boto3
 import json
 import os
 import PyPDF2
+import traceback
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -10,22 +11,40 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# AWS Clients
-bedrock = boto3.client(
-    service_name="bedrock-runtime",
-    region_name=os.getenv("AWS_REGION", "us-east-1")
-)
+# AWS Credentials
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+BUCKET = os.getenv("S3_BUCKET_NAME")
+UPLOAD_FOLDER = "uploads"
 
+# Guardrail config
 GUARDRAIL_ID = "k191z5hjoqwb"
 GUARDRAIL_VERSION = "DRAFT"
 
-s3 = boto3.client(
-    service_name="s3",
-    region_name=os.getenv("AWS_REGION", "us-east-1")
+print("=== STARTUP CHECK ===")
+print("AWS_REGION:", AWS_REGION)
+print("AWS_ACCESS_KEY:", "FOUND" if AWS_ACCESS_KEY else "NOT FOUND")
+print("AWS_SECRET_KEY:", "FOUND" if AWS_SECRET_KEY else "NOT FOUND")
+print("S3_BUCKET:", BUCKET)
+print("=====================")
+
+# AWS Clients
+bedrock_client = boto3.client(
+    service_name="bedrock-runtime",
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
 )
 
-BUCKET = os.getenv("S3_BUCKET_NAME")
-UPLOAD_FOLDER = "uploads"
+s3_client = boto3.client(
+    service_name="s3",
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
+)
+
+print("✅ AWS clients initialized!")
 
 # ================================================
 #              HELPER FUNCTIONS
@@ -42,7 +61,10 @@ def extract_text_from_pdf(filepath):
 def extract_text_from_txt(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         return f.read()
+
 def ask_bedrock(question, context):
+    print(f"Asking Bedrock: {question[:50]}...")
+
     prompt = f"""You are an intelligent document assistant.
 Use ONLY the following document content to answer the question.
 If the answer is not in the document, say "I could not find that information in the document."
@@ -61,7 +83,8 @@ Answer:"""
     })
 
     try:
-        response = bedrock.invoke_model(
+        print("Calling Bedrock API...")
+        response = bedrock_client.invoke_model(
             modelId="meta.llama3-8b-instruct-v1:0",
             body=body,
             contentType="application/json",
@@ -69,28 +92,29 @@ Answer:"""
             guardrailIdentifier=GUARDRAIL_ID,
             guardrailVersion=GUARDRAIL_VERSION,
         )
+        print("Bedrock response received!")
 
         response_body = json.loads(response["body"].read())
+        print("Response body:", str(response_body)[:200])
 
-        # Check if guardrail blocked it
-        if response_body.get("amazon-bedrock-guardrailAction") == "BLOCKED":
-            return "🛡️ Guardrail blocked this request — harmful content detected!"
-
-        # Check generation field
         answer = response_body.get("generation", "")
 
         if not answer or answer.strip() == "":
-            return "🛡️ This response was blocked by Bedrock Guardrails for safety reasons!"
+            return "🛡️ This response was blocked by Bedrock Guardrails!"
 
         return answer.strip()
 
-    except bedrock.exceptions.ClientError as e:
-        error_code = e.response["Error"]["Code"]
-        if error_code == "ValidationException":
-            return "🛡️ Guardrail blocked this request — content policy violation!"
+    except Exception as e:
+        print("BEDROCK ERROR:", traceback.format_exc())
         raise e
 
-    
+def upload_to_s3(filepath, filename):
+    try:
+        s3_client.upload_file(filepath, BUCKET, f"documents/{filename}")
+        return f"s3://{BUCKET}/documents/{filename}"
+    except Exception as e:
+        print("S3 ERROR:", str(e))
+        return f"S3 upload failed: {str(e)}"
 
 # ================================================
 #                   ROUTES
@@ -109,11 +133,10 @@ def upload_document():
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
 
-    # Save file locally
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
+    print(f"File saved: {filepath}")
 
-    # Extract text
     try:
         if file.filename.endswith(".pdf"):
             text = extract_text_from_pdf(filepath)
@@ -122,16 +145,13 @@ def upload_document():
         else:
             return jsonify({"error": "Only PDF and TXT files supported"}), 400
     except Exception as e:
+        print("FILE READ ERROR:", traceback.format_exc())
         return jsonify({"error": f"Could not read file: {str(e)}"}), 500
 
-    # Upload to S3
-    try:
-        s3_path = upload_to_s3(filepath, file.filename)
-    except Exception as e:
-        s3_path = "S3 upload failed — using local file"
+    s3_path = upload_to_s3(filepath, file.filename)
 
     return jsonify({
-        "message": f"✅ Document uploaded successfully!",
+        "message": "✅ Document uploaded successfully!",
         "filename": file.filename,
         "s3_path": s3_path,
         "text_preview": text[:200] + "...",
@@ -144,25 +164,31 @@ def ask_question():
     question = data.get("question", "")
     filename = data.get("filename", "")
 
+    print(f"Question: {question}")
+    print(f"Filename: {filename}")
+
     if not question:
         return jsonify({"error": "No question provided"}), 400
     if not filename:
         return jsonify({"error": "No document selected"}), 400
 
-    # Load document text
     filepath = os.path.join(UPLOAD_FOLDER, filename)
+    print(f"Looking for file: {filepath}")
+    print(f"File exists: {os.path.exists(filepath)}")
+
     if not os.path.exists(filepath):
-        return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": f"Document not found: {filepath}"}), 404
 
     try:
         if filename.endswith(".pdf"):
             context = extract_text_from_pdf(filepath)
         else:
             context = extract_text_from_txt(filepath)
+        print(f"Context length: {len(context)}")
     except Exception as e:
+        print("CONTEXT ERROR:", traceback.format_exc())
         return jsonify({"error": f"Could not read file: {str(e)}"}), 500
 
-    # Ask Bedrock
     try:
         answer = ask_bedrock(question, context)
         return jsonify({
@@ -172,16 +198,15 @@ def ask_question():
             "model": "Llama 3 via AWS Bedrock"
         })
     except Exception as e:
+        print("FULL ERROR:", traceback.format_exc())
         return jsonify({"error": f"AI error: {str(e)}"}), 500
 
 @app.route("/documents", methods=["GET"])
 def list_documents():
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     files = os.listdir(UPLOAD_FOLDER)
     docs = [f for f in files if f.endswith((".pdf", ".txt"))]
-    return jsonify({
-        "total": len(docs),
-        "documents": docs
-    })
+    return jsonify({"total": len(docs), "documents": docs})
 
 @app.route("/health", methods=["GET"])
 def health():

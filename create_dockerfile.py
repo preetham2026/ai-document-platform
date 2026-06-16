@@ -1,0 +1,10 @@
+with open('Dockerfile', 'w', encoding='utf-8') as f:
+    f.write('FROM python:3.11-slim\n')
+    f.write('WORKDIR /app\n')
+    f.write('COPY requirements.txt .\n')
+    f.write('RUN pip install --no-cache-dir -r requirements.txt\n')
+    f.write('COPY . .\n')
+    f.write('RUN mkdir -p uploads\n')
+    f.write('EXPOSE 5000\n')
+    f.write('CMD ["python", "app.py"]\n')
+print('Dockerfile created!')

@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
@@ -33,7 +33,7 @@ jobs:
     needs: build-and-test
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build Docker image
       run: |
@@ -59,7 +59,7 @@ jobs:
     needs: build-docker
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -67,20 +67,22 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
+        command_timeout: 30m
         script: |
           cd ai-document-platform
           git pull origin main
-          sudo docker stop ai-doc-app || true
-          sudo docker rm ai-doc-app || true
+          sudo docker stop ai-doc-app 2>/dev/null || true
+          sudo docker rm ai-doc-app 2>/dev/null || true
           sudo docker build -t ai-document-platform .
           sudo docker run -d -p 5000:5000 \
             --name ai-doc-app \
+            --restart unless-stopped \
             -e AWS_REGION=us-east-1 \
             -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             -e S3_BUCKET_NAME=ai-document-platform-bucket \
             ai-document-platform
-          echo "Deployed to EC2 successfully!"
+          echo "Deployed successfully!"
 
   notify:
     runs-on: ubuntu-latest
